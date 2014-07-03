@@ -22,12 +22,12 @@ func main () {
 
 	buf := make ([]byte, 4096)
 	for {
-		length, _, err := conn.ReadFromUDP (buf)
+		_, _, err := conn.ReadFromUDP (buf)
 		if err != nil {
 			log.Fatal ("ReadFromUDP err")
 		}
-		fmt.Println ("recv byte: ", length)
-		fmt.Println (string (buf[:length]))
+		fmt.Println ("type: ", buf[0])
+		fmt.Println ("len: ", buf[1])
+		fmt.Println (buf)
 	}
 }
-// t
