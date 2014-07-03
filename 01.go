@@ -2,7 +2,6 @@ package main
 
 import (
 	"net"
-	"time"
 	"log"
 	"fmt"
 )
@@ -15,13 +14,19 @@ func main () {
 
 	multicastip := net.ParseIP ("230.1.1.1")
 	pUDPAddr := &net.UDPAddr {IP: multicastip, Port: 12345}
-	fmt.Println (*pUDPAddr)
-	_, err = net.ListenMulticastUDP ("udp4", ifi, pUDPAddr)
+	// fmt.Println (*pUDPAddr)
+	conn, err := net.ListenMulticastUDP ("udp4", ifi, pUDPAddr)
 	if err != nil {
 		log.Fatal ("net.ListenMulticastUDP err")
 	}
 
+	buf := make ([]byte, 4096)
 	for {
-		time.Sleep (1)
+		length, _, err := conn.ReadFromUDP (buf)
+		if err != nil {
+			log.Fatal ("ReadFromUDP err")
+		}
+		fmt.Println ("recv byte: ", length)
+		fmt.Println (string (buf[:length]))
 	}
 }
