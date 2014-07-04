@@ -9,7 +9,8 @@ import (
 
 func main() {
 	/// conn, err := net.Dial ("udp", "224.0.0.1:12345")
-	conn, err := net.Dial("udp", "230.1.1.1:12345")
+	/// conn, err := net.Dial("udp", "230.1.1.1:12345")
+	conn, err := net.Dial("udp", "127.0.0.1:12345")
 	if err != nil {
 		log.Fatal("dial err")
 	}
