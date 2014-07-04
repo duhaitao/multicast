@@ -4,7 +4,7 @@ import (
 	"net"
 	"log"
 	"fmt"
-	"bytes"
+	"encoding/binary"
 )
 
 func main () {
@@ -14,24 +14,19 @@ func main () {
 	}
 
 	buf := make ([]byte, 1024)
-	buffer := bytes.NewBuffer (buf)
 
 	/*   +------------------------+
 	 *   | type | len | val       |
 	 *   +------------------------+
-	 *     1B     1B  
+	 *     2B     4B  
 	 */
-	var pkttype byte = 1
-	buffer.WriteByte (pkttype)
-	var length byte = 10
-	buffer.WriteByte (length)
-	_, ret := buffer.WriteString ("0123456789")
-	if ret != nil {
-		log.Fatal ("WriteString err")
-	}
+	var pkttype uint16 = 2
+	binary.BigEndian.PutUint16 (buf[:2], pkttype)
+	var length uint32 = 10
+	binary.BigEndian.PutUint32 (buf[2:6], length)
+	copy (buf[6:], []byte("0123456789"))
 
-	fmt.Println (string(buffer.Bytes ()))
-	b := buffer.Bytes ()
-	_, err = conn.Write (b[:12])
+	fmt.Println (string(buf))
+	_, err = conn.Write (buf[:16])
 	conn.Close ()
 }

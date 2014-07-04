@@ -4,12 +4,13 @@ import (
 	"net"
 	"log"
 	"fmt"
+	"encoding/binary"
 )
 
 func main () {
-	ifi, err := net.InterfaceByName ("wlan0")
+	ifi, err := net.InterfaceByName ("eth0")
 	if err != nil {
-		log.Fatal ("wlan0 err")
+		log.Fatal ("eth0 err")
 	}
 
 	multicastip := net.ParseIP ("230.1.1.1")
@@ -22,12 +23,13 @@ func main () {
 
 	buf := make ([]byte, 4096)
 	for {
-		_, _, err := conn.ReadFromUDP (buf)
+		length, _, err := conn.ReadFromUDP (buf)
 		if err != nil {
 			log.Fatal ("ReadFromUDP err")
 		}
-		fmt.Println ("type: ", buf[0])
-		fmt.Println ("len: ", buf[1])
-		fmt.Println (buf)
+
+		fmt.Println ("type: ", binary.BigEndian.Uint16 (buf[:2]))
+		fmt.Println ("len: ", binary.BigEndian.Uint32 (buf[2:6]))
+		fmt.Println (string(buf[6:length]))
 	}
 }
