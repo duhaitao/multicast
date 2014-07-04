@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/binary"
-	// "fmt"
+	 "fmt"
 	"log"
 	"net"
 	"container/list"
@@ -100,9 +100,11 @@ func main() {
 				}
 
 				binary.BigEndian.PutUint32 (nak_pkg.content[0:], last_seq)
+				fmt.Println ("send nak pkg: ", last_seq)
 				wchan<- nak_pkg
 			}
 
+			last_seq = seq
 			/// fmt.Println (length, seq)
 			pkglist.PushBack (rcv_pkg)
 	//		fmt.Println ("after pushback pkglist len: ", pkglist.Len ())

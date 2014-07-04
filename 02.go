@@ -32,6 +32,9 @@ func main() {
 		copy(buf[6:], []byte("0123456789"))
 		seq++
 
+		if seq % 100000 == 0 {
+			seq++
+		}
 		binary.BigEndian.PutUint32(buf[6:10], seq)
 
 		//fmt.Println(string(buf))
