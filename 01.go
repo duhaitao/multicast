@@ -18,6 +18,7 @@ func main() {
 		log.Fatal("eth0 err")
 	}
 
+	// make pkg cache
 	var newpkg *pkg
 	pkglist := list.New ()
 	for i := 0; i < 10000; i++ {
@@ -32,6 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatal("net.ListenMulticastUDP err")
 	}
+	defer conn.Close ()
 
 	buf := make([]byte, 4096)
 	rchan := make (chan *pkg, 4096)
