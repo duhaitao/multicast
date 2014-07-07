@@ -155,11 +155,25 @@ func main() {
 				continue
 			}
 
+			var insertok bool
 			// iterate lost_pkg_list to insert lost pkg
 			for e := lost_pkg_list.Front(); e != nil; e = e.Next() {
+				pkt_seq := binary.BigEndian.Uint32 (e.Value.(*pkg).content[6:10])
+				if seq == pkt_seq {// duplicate pkt, ignore
+					insertok = true
+					break
+				}
 
+				if seq < pkt_seq {
+					insertok = true 
+					pkglist.InsertBefore (rcv_pkg, e)
+					break
+				}
 			}
-
+			// if rcv_pkt not blong to lost_pkg_list, then append it
+			if insertok == false {
+				pkglist.PushBack (rcv_pkg)
+			}
 
 			if last_seq != 0 && last_seq + 1 < seq {
 				// pkg lost, send nak
