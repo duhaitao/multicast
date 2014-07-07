@@ -39,6 +39,32 @@ func main() {
 	 *   | type | len | seq | val |
 	 *   +------------------------+
 	 *     2B     4B    4B
+	 *
+	 *   type:
+	 *     1 -- data pkg
+	 *     2 -- ack
+	 *     3 -- nak
+	 *
+	 *   len:
+	 *     val len
+	 *
+	 *   seq:
+	 *     send sequence, increase monotonicly by 1
+	 *
+	 *   if type == ack:
+	 *     no val, receiver must ack first pkg, then ack per millsecond normally, sender
+	 *     can assure reciever is alive by ack
+	 *   
+	 *   if type == nak:
+	 *     val format:
+	 *   +-----------------------------+
+	 *   | seq | len | ... | seq | len |
+	 *   +-----------------------------+
+	 *     4B    4B          4B     4B
+	 *
+	 *     seq: 
+	 * 		first seq of lost range, len is length of range. every receiver hole occupy a
+	 *      <seq, len> pair
 	 */
 	cgc_win_siz := 1 // init congestion windown is 1, like tcp
 	sld_win_siz := 10 // init slide window size 
