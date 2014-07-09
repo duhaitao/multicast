@@ -7,6 +7,7 @@ import (
 	"container/list"
 	"time"
 	"github.com/duhaitao/multicast/rmcast"
+	"encoding/binary"
 )
 
 func HandlePackage (npkg *rmcast.PKG) {
@@ -51,38 +52,29 @@ func main() {
 				log.Fatal("ReadFromUDP err")
 			}
 
-			//fmt.Println("type: ", binary.BigEndian.Uint16(buf[:2]))
-			//fmt.Println("len: ", binary.BigEndian.Uint32(buf[2:6]))
-			//fmt.Println("seq: ", binary.BigEndian.Uint32(buf[6:10]))
-			//fmt.Println(string(buf[10:length]))
 			var rcv_pkg *rmcast.PKG
 			if pkglist.Len () > 0 {
 				elem := pkglist.Front ()
 				rcv_pkg = elem.Value.(*rmcast.PKG)
 				pkglist.Remove (elem)
-		//		fmt.Println ("after pop pkglist len: ", pkglist.Len ())
+				// fmt.Println ("after pop pkglist len: ", pkglist.Len ())
 			} else {
 				rcv_pkg = new (rmcast.PKG)
 			}
 			rcv_pkg.SetBuf (buf[:nread])
-/*
-			seq := binary.BigEndian.Uint32(buf[6:10])
-			if seq%10000 == 0 {
-				log.Fatal(seq)
-			}
-*/
 			rchan<- rcv_pkg
 		}
 	} ()
 
-/*
+	// write to peer, ack and nak
 	go func () {
 		for rcv_pkg := range wchan {
-			conn.WriteToUDP (rcv_pkg.content[:4], peer_addr)
+			conn.WriteToUDP (rcv_pkg.GetBuf (), peer_addr)
 			pkglist.PushBack (rcv_pkg)
 		}
 	} ()
-*/
+
+	lost_seq_array := make ([]uint32, 0, 256)
 	now := time.Now ()
 	for {
 		var last_seq uint32 // last continous seq and first unordered seq
@@ -157,7 +149,7 @@ func main() {
 				}
 
 				if seq < pkt_seq {
-					insertok = true 
+					insertok = true
 					pkglist.InsertBefore (rcv_pkg, e)
 					break
 				}
@@ -168,7 +160,7 @@ func main() {
 			}
 
 			if last_seq != 0 && last_seq + 1 < seq {
-				// pkg lost, send nak
+				// pkg lost, send nak immediately
 				if pkglist.Len () > 0 {
 					elem := pkglist.Front ()
 					nak_pkg = elem.Value.(*rmcast.PKG)
@@ -183,6 +175,41 @@ func main() {
 
 				nak_pkg.SetType (rmcast.TYPE_NAK)
 				nak_pkg.SetSeq (last_seq)
+
+				var lost_seq_count int
+				lost_seq_array = append (lost_seq_array, last_seq + 1)
+				if lost_pkg_list.Front() != nil {
+					next_pkg := lost_pkg_list.Front().Value.(*rmcast.PKG)
+					lost_seq_array = append (lost_seq_array, next_pkg.GetSeq () - last_seq - 1)
+					lost_seq_count++
+				} else {
+					log.Fatal ("lost_pkg_list must not empty")
+				}
+				// nak should carray hole info
+				for e := lost_pkg_list.Front(); e != nil; e = e.Next() {
+					unordered_pkg := e.Value.(*rmcast.PKG)
+					if e.Next () != nil {
+						next_unordered_pkg := e.Next ().Value.(*rmcast.PKG)
+						if unordered_pkg.GetSeq () + 1 != next_unordered_pkg.GetSeq () {
+							// found a hole
+							lost_seq_array = append (lost_seq_array, unordered_pkg.GetSeq () + 1)
+							lost_seq_array = append (lost_seq_array,
+								next_unordered_pkg.GetSeq () - 1 - unordered_pkg.GetSeq ())
+							lost_seq_count++
+							if lost_seq_count == 255 {
+								break
+							}
+						}
+					}
+				}
+
+				// lost seq hole in lost_seq_array
+				// nak_pkg.SetVal ([]byte (lost_seq_array[:lost_seq_count]))
+				val_buf := nak_pkg.GetBuf ()
+				for i := 0; i < lost_seq_count * 2; i++ {
+					binary.BigEndian.PutUint32 (val_buf[4 * i:4 * (i + 1)], lost_seq_array[i])
+				}
+
 				fmt.Println ("send nak pkg: ", last_seq)
 				wchan<- nak_pkg
 
@@ -193,7 +220,6 @@ func main() {
 			last_seq = seq
 			/// fmt.Println (length, seq)
 			pkglist.PushBack (rcv_pkg)
-	//		fmt.Println ("after pushback pkglist len: ", pkglist.Len ())
 		}
 	}
 }

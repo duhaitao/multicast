@@ -1,11 +1,12 @@
 package main
 
 import (
-	"encoding/binary"
-	//"fmt"
+	// "encoding/binary"
+	// "fmt"
 	"log"
 	"net"
 	"time"
+	"github.com/duhaitao/multicast/rmcast"
 )
 
 func main() {
@@ -13,11 +14,11 @@ func main() {
 	/// conn, err := net.Dial("udp", "230.1.1.1:12345")
 	UdpAddr, err := net.ResolveUDPAddr ("udp", "127.0.0.1:12345")
 	if err != nil {
-		log.Fatal ("ResolveUDPAddr err")
+		log.Fatal ("ResolveUDPAddr err: ", err)
 	}
 	conn, err := net.DialUDP("udp", nil, UdpAddr)
 	if err != nil {
-		log.Fatal("dial err")
+		log.Fatal("dial err: ", err)
 	}
 	defer conn.Close ()
 
@@ -30,7 +31,7 @@ func main() {
 				log.Fatal("ReadFromUDP err")
 			}
 
-			// rcv nak pkg
+			// rcv ack or nak pkg
 
 		}
 	} ()

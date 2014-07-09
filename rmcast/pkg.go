@@ -83,5 +83,5 @@ func (pkg *PKG) SetBuf (val []byte) {
 }
 
 func (pkg *PKG) GetBuf () []byte {
-	return pkg.buf[:]
+	return pkg.buf[:10 + binary.BigEndian.Uint32 (pkg.buf[2:6])]
 }
