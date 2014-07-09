@@ -5,6 +5,7 @@ import (
 	//"fmt"
 	"log"
 	"net"
+	"time"
 )
 
 func main() {
@@ -66,25 +67,29 @@ func main() {
 	 * 		first seq of lost range, len is length of range. every receiver hole occupy a
 	 *      <seq, len> pair
 	 */
-	cgc_win_siz := 1 // init congestion windown is 1, like tcp
-	sld_win_siz := 10 // init slide window size 
+	cwin_siz := 1 // init congestion windown is 1, like tcp
+	swin_siz := 10 // init slide window size 
 	var seq uint32
+	tbegin := time.Now ()
 	for {
-		var pkttype uint16 = 2
+		var pkttype uint16 = 1
 		binary.BigEndian.PutUint16(buf[:2], pkttype)
 		var length uint32 = 10
 		binary.BigEndian.PutUint32(buf[2:6], length)
 
-		copy(buf[6:], []byte("0123456789"))
 		seq++
 
-		if seq % 100000 == 0 {
-			seq++
-		}
 		binary.BigEndian.PutUint32(buf[6:10], seq)
+		copy(buf[10:], []byte("0123456789"))
 
 		//fmt.Println(string(buf))
 		_, err = conn.Write(buf[:20])
+
+		if time.Since (tbegin) > 1000000 { // great 1ms
+			tbegin = time.Now ()
+			// overtime, send ack
+
+		}
 	}
 	conn.Close()
 }

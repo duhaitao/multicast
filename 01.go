@@ -7,20 +7,11 @@ import (
 	"net"
 	"container/list"
 	"time"
+	"rmcast"
 )
 
-const (
-	TYPE_DATA = 1
-	TYPE_ACK  = 2
-	TYPE_NAK  = 3
-)
-
-type pkg struct {
-	content [4096]byte
-}
-
-func HandlePackage (npkg *pkg) {
-	fmt.Println ("rcv seq: ", binary.BigEndian.Uint32 (npkg.content[6:10]))
+func HandlePackage (npkg *rmcast.pkg) {
+	fmt.Println ("rcv seq: ", npkg.GetSeq ())
 }
 
 func main() {
@@ -30,10 +21,10 @@ func main() {
 	}
 
 	// make pkg cache
-	var newpkg *pkg
+	var newpkg *rmcast.pkg
 	pkglist := list.New ()
 	for i := 0; i < 10000; i++ {
-		newpkg = new (pkg)
+		newpkg = new (rmcast.pkg)
 		pkglist.PushBack (newpkg)
 	}
 
