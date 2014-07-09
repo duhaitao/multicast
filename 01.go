@@ -1,16 +1,15 @@
 package main
 
 import (
-	"encoding/binary"
 	 "fmt"
 	"log"
 	"net"
 	"container/list"
 	"time"
-	"rmcast"
+	"github.com/duhaitao/multicast/rmcast"
 )
 
-func HandlePackage (npkg *rmcast.pkg) {
+func HandlePackage (npkg *rmcast.PKG) {
 	fmt.Println ("rcv seq: ", npkg.GetSeq ())
 }
 
@@ -21,10 +20,10 @@ func main() {
 	}
 
 	// make pkg cache
-	var newpkg *rmcast.pkg
+	var newpkg *rmcast.PKG
 	pkglist := list.New ()
 	for i := 0; i < 10000; i++ {
-		newpkg = new (rmcast.pkg)
+		newpkg = new (rmcast.PKG)
 		pkglist.PushBack (newpkg)
 	}
 
@@ -41,8 +40,8 @@ func main() {
 	defer conn.Close ()
 
 	buf := make([]byte, 4096)
-	rchan := make (chan *pkg, 4096)
-	wchan := make (chan *pkg, 4096)
+	rchan := make (chan *rmcast.PKG, 4096)
+	wchan := make (chan *rmcast.PKG, 4096)
 	var peer_addr *net.UDPAddr
 	var nread int
 	go func() {
@@ -56,16 +55,16 @@ func main() {
 			//fmt.Println("len: ", binary.BigEndian.Uint32(buf[2:6]))
 			//fmt.Println("seq: ", binary.BigEndian.Uint32(buf[6:10]))
 			//fmt.Println(string(buf[10:length]))
-			var rcv_pkg *pkg
+			var rcv_pkg *rmcast.PKG
 			if pkglist.Len () > 0 {
 				elem := pkglist.Front ()
-				rcv_pkg = elem.Value.(*pkg)
+				rcv_pkg = elem.Value.(*rmcast.PKG)
 				pkglist.Remove (elem)
 		//		fmt.Println ("after pop pkglist len: ", pkglist.Len ())
 			} else {
-				rcv_pkg = new (pkg)
+				rcv_pkg = new (rmcast.PKG)
 			}
-			copy (rcv_pkg.content[0:], buf[:nread])
+			rcv_pkg.SetBuf (buf[:nread])
 /*
 			seq := binary.BigEndian.Uint32(buf[6:10])
 			if seq%10000 == 0 {
@@ -76,37 +75,37 @@ func main() {
 		}
 	} ()
 
+/*
 	go func () {
 		for rcv_pkg := range wchan {
 			conn.WriteToUDP (rcv_pkg.content[:4], peer_addr)
 			pkglist.PushBack (rcv_pkg)
 		}
 	} ()
-
+*/
 	now := time.Now ()
 	for {
 		var last_seq uint32 // last continous seq and first unordered seq
-		var nak_pkg, ack_pkg *pkg
+		var nak_pkg, ack_pkg *rmcast.PKG
 		for rcv_pkg := range rchan {
-			buf := rcv_pkg.content
-			length := binary.BigEndian.Uint32(buf[2:6])
-			seq := binary.BigEndian.Uint32(buf[6:10])
+			length := rcv_pkg.GetLen ()
+			seq := rcv_pkg.GetSeq ()
 
 			/* recv first pkg, send ack immediately */
 			if seq == 1 || time.Since (now) > 1000000 { // greater then 1ms, send ack
 				if pkglist.Len () > 0 {
 					elem := pkglist.Front ()
-					ack_pkg = elem.Value.(*pkg)
+					ack_pkg = elem.Value.(*rmcast.PKG)
 					pkglist.Remove (elem)
 			//		fmt.Println ("after pop pkglist len: ", pkglist.Len ())
 				} else {
-					ack_pkg = new (pkg)
+					ack_pkg = new (rmcast.PKG)
 				}
 
-				binary.BigEndian.PutUint16 (ack_pkg.content[:2], TYPE_ACK)
-				binary.BigEndian.PutUint32 (ack_pkg.content[2:6], 0)
+				ack_pkg.SetType (rmcast.TYPE_ACK)
+				ack_pkg.SetLen (0)
 				// ack stand for next seq I will receive, like tcp
-				binary.BigEndian.PutUint32 (ack_pkg.content[6:10], seq + 1)
+				ack_pkg.SetSeq (seq + 1)
 
 				now = time.Now ()
 				wchan<- ack_pkg
@@ -131,12 +130,13 @@ func main() {
 
 				// one hole is filled, will trig many or zero pkg to handle
 				for e := lost_pkg_list.Front(); e != nil; e = e.Next() {
-					if last_seq + 1 == binary.BigEndian.Uint32 (e.Value.(*pkg).content[6:10]) {
+					unordered_pkg := e.Value.(*rmcast.PKG)
+					if last_seq + 1 == unordered_pkg.GetSeq () {
 						lost_pkg_list.Remove (e)
 
-						HandlePackage (e.Value.(*pkg))
+						HandlePackage (unordered_pkg)
 						last_seq += 1
-						pkglist.PushBack (e.Value.(*pkg))
+						pkglist.PushBack (unordered_pkg)
 					} else {
 						// first seq != last_seq + 1, then break, no continue pkg
 						break
@@ -149,7 +149,8 @@ func main() {
 			var insertok bool
 			// iterate lost_pkg_list to insert lost pkg
 			for e := lost_pkg_list.Front(); e != nil; e = e.Next() {
-				pkt_seq := binary.BigEndian.Uint32 (e.Value.(*pkg).content[6:10])
+				unordered_pkg := e.Value.(*rmcast.PKG)
+				pkt_seq := unordered_pkg.GetSeq ()
 				if seq == pkt_seq {// duplicate pkt, ignore
 					insertok = true
 					break
@@ -170,18 +171,18 @@ func main() {
 				// pkg lost, send nak
 				if pkglist.Len () > 0 {
 					elem := pkglist.Front ()
-					nak_pkg = elem.Value.(*pkg)
+					nak_pkg = elem.Value.(*rmcast.PKG)
 					pkglist.Remove (elem)
 			//		fmt.Println ("after pop pkglist len: ", pkglist.Len ())
 				} else {
-					nak_pkg = new (pkg)
+					nak_pkg = new (rmcast.PKG)
 				}
 
 				// enque this unordered pkg to lost_pkg_list
 				lost_pkg_list.PushBack (rcv_pkg)
 
-				binary.BigEndian.PutUint16 (nak_pkg.content[0:], TYPE_NAK)
-				binary.BigEndian.PutUint32 (nak_pkg.content[0:], last_seq)
+				nak_pkg.SetType (rmcast.TYPE_NAK)
+				nak_pkg.SetSeq (last_seq)
 				fmt.Println ("send nak pkg: ", last_seq)
 				wchan<- nak_pkg
 

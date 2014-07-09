@@ -42,37 +42,46 @@ const (
 )
 
 type PKG struct {
-	content [4096]byte
+	buf [4096]byte
 }
 
 func (pkg *PKG) GetType () uint16 {
-	return binary.BigEndian.Uint16 (pkg.content[:4])
+	return binary.BigEndian.Uint16 (pkg.buf[:4])
 }
 
 func (pkg *PKG) SetType (t uint16) {
-	binary.BigEndian.PutUint16 (pkg.content[:4], t)
+	binary.BigEndian.PutUint16 (pkg.buf[:4], t)
 }
 
 func (pkg *PKG) GetSeq () uint32 {
-	return binary.BigEndian.Uint32 (pkg.content[6:10])
+	return binary.BigEndian.Uint32 (pkg.buf[6:10])
 }
 
 func (pkg *PKG) SetSeq (seq uint32) {
-	binary.BigEndian.PutUint32 (pkg.content[6:10], seq)
+	binary.BigEndian.PutUint32 (pkg.buf[6:10], seq)
 }
 
 func (pkg *PKG) GetLen () uint32 {
-	return binary.BigEndian.Uint32 (pkg.content[2:6])
+	return binary.BigEndian.Uint32 (pkg.buf[2:6])
 }
 
 func (pkg *PKG) SetLen (l uint32) {
-	binary.BigEndian.PutUint32 (pkg.content[2:6], l)
+	binary.BigEndian.PutUint32 (pkg.buf[2:6], l)
 }
 
 func (pkg *PKG) GetVal () []byte {
-	return pkg.content[10:]
+	return pkg.buf[10:]
 }
 
 func (pkg *PKG) SetVal (val []byte) {
-	copy (pkg.content[10:], val)
+	copy (pkg.buf[10:], val)
+}
+
+// overwrite all buf
+func (pkg *PKG) SetBuf (val []byte) {
+	copy (pkg.buf[:], val)
+}
+
+func (pkg *PKG) GetBuf () []byte {
+	return pkg.buf[:]
 }
