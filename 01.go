@@ -99,11 +99,13 @@ func main() {
 				// ack stand for next seq I will receive, like tcp
 				ack_pkg.SetSeq (seq + 1)
 
+				fmt.Println ("send ack")
 				now = time.Now ()
 				wchan<- ack_pkg
 			}
 
 			// duplicate pkg, ignore it
+			fmt.Println ("seq : last_seq", seq, last_seq)
 			if seq <= last_seq {
 				pkglist.PushBack (rcv_pkg)
 				continue
@@ -206,7 +208,10 @@ func main() {
 				// lost seq hole in lost_seq_array
 				// nak_pkg.SetVal ([]byte (lost_seq_array[:lost_seq_count]))
 				val_buf := nak_pkg.GetBuf ()
-				for i := 0; i < lost_seq_count * 2; i++ {
+				for i := 0; i < lost_seq_count; i++ {
+					lost_seq := lost_seq_array[2 * i]
+					lost_len := lost_seq_array[2 * i + 1]
+					fmt.Println ("lost seq, len", lost_seq, lost_len)
 					binary.BigEndian.PutUint32 (val_buf[4 * i:4 * (i + 1)], lost_seq_array[i])
 				}
 

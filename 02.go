@@ -1,12 +1,12 @@
 package main
 
 import (
-	// "encoding/binary"
+	"encoding/binary"
 	// "fmt"
 	"log"
 	"net"
 	"time"
-	"github.com/duhaitao/multicast/rmcast"
+	// "github.com/duhaitao/multicast/rmcast"
 )
 
 func main() {
@@ -22,6 +22,7 @@ func main() {
 	}
 	defer conn.Close ()
 
+/*
 	// recv go routine
 	go func () {
 		buf := make ([]byte, 4096)
@@ -35,7 +36,7 @@ func main() {
 
 		}
 	} ()
-
+*/
 	buf := make([]byte, 1024)
 	/*   +------------------------+
 	 *   | type | len | seq | val |
@@ -68,8 +69,8 @@ func main() {
 	 * 		first seq of lost range, len is length of range. every receiver hole occupy a
 	 *      <seq, len> pair
 	 */
-	cwin_siz := 1 // init congestion windown is 1, like tcp
-	swin_siz := 10 // init slide window size 
+	// cwin_siz := 1 // init congestion windown is 1, like tcp
+	// swin_siz := 10 // init slide window size 
 	var seq uint32
 	tbegin := time.Now ()
 	for {
