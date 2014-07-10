@@ -24,7 +24,7 @@ func main() {
 	var newpkg *rmcast.PKG
 	pkglist := list.New ()
 	for i := 0; i < 10000; i++ {
-		newpkg = new (rmcast.PKG)
+		newpkg = rmcast.NewPKG ()
 		pkglist.PushBack (newpkg)
 	}
 
@@ -59,7 +59,8 @@ func main() {
 				pkglist.Remove (elem)
 				// fmt.Println ("after pop pkglist len: ", pkglist.Len ())
 			} else {
-				rcv_pkg = new (rmcast.PKG)
+				/// rcv_pkg = new (rmcast.PKG)
+				rcv_pkg = rmcast.NewPKG ()
 			}
 			rcv_pkg.SetBuf (buf[:nread])
 			rchan<- rcv_pkg
@@ -91,7 +92,8 @@ func main() {
 					pkglist.Remove (elem)
 			//		fmt.Println ("after pop pkglist len: ", pkglist.Len ())
 				} else {
-					ack_pkg = new (rmcast.PKG)
+					/// ack_pkg = new (rmcast.PKG)
+					ack_pkg = rmcast.NewPKG ()
 				}
 
 				ack_pkg.SetType (rmcast.TYPE_ACK)
@@ -169,7 +171,8 @@ func main() {
 					pkglist.Remove (elem)
 			//		fmt.Println ("after pop pkglist len: ", pkglist.Len ())
 				} else {
-					nak_pkg = new (rmcast.PKG)
+					/// nak_pkg = new (rmcast.PKG)
+					nak_pkg = rmcast.NewPKG ()
 				}
 
 				// enque this unordered pkg to lost_pkg_list
@@ -178,7 +181,7 @@ func main() {
 				nak_pkg.SetType (rmcast.TYPE_NAK)
 				nak_pkg.SetSeq (last_seq)
 
-				var lost_seq_count int
+				var lost_seq_count uint32
 				lost_seq_array = append (lost_seq_array, last_seq + 1)
 				if lost_pkg_list.Front() != nil {
 					next_pkg := lost_pkg_list.Front().Value.(*rmcast.PKG)
@@ -208,12 +211,21 @@ func main() {
 				// lost seq hole in lost_seq_array
 				// nak_pkg.SetVal ([]byte (lost_seq_array[:lost_seq_count]))
 				val_buf := nak_pkg.GetBuf ()
-				for i := 0; i < lost_seq_count; i++ {
+				var i uint32
+				for i = 0; i < lost_seq_count; i++ {
+					var tmp [8]byte
 					lost_seq := lost_seq_array[2 * i]
+					binary.BigEndian.PutUint32 (tmp[:4], lost_seq)
 					lost_len := lost_seq_array[2 * i + 1]
+					binary.BigEndian.PutUint32 (tmp[4:], lost_len)
+
+					copy (val_buf[10 + 4 * i:10 + 4 * (i + 1)], tmp[:])
+
 					fmt.Println ("lost seq, len", lost_seq, lost_len)
-					binary.BigEndian.PutUint32 (val_buf[4 * i:4 * (i + 1)], lost_seq_array[i])
+					/// binary.BigEndian.PutUint32 (val_buf[4 * i:4 * (i + 1)], lost_seq_array[i])
 				}
+
+				binary.BigEndian.PutUint32 (val_buf[4:8], lost_seq_count)
 
 				fmt.Println ("send nak pkg: ", last_seq)
 				wchan<- nak_pkg

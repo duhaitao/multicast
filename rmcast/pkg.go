@@ -1,5 +1,9 @@
 package rmcast
 
+import (
+	//"fmt"
+)
+
 /*   +------------------------+
  *   | type | len | seq | val |
  *   +------------------------+
@@ -42,7 +46,11 @@ const (
 )
 
 type PKG struct {
-	buf [4096]byte
+	buf []byte
+}
+
+func NewPKG () *PKG {
+	return &PKG{make ([]byte, 10, 4096)}
 }
 
 func (pkg *PKG) GetType () uint16 {
@@ -83,5 +91,7 @@ func (pkg *PKG) SetBuf (val []byte) {
 }
 
 func (pkg *PKG) GetBuf () []byte {
-	return pkg.buf[:10 + binary.BigEndian.Uint32 (pkg.buf[2:6])]
+	/// fmt.Println ("buf size: ", 10 + binary.BigEndian.Uint32 (pkg.buf[2:6]))
+	/// return pkg.buf[:10 + binary.BigEndian.Uint32 (pkg.buf[2:6])]
+	return pkg.buf[:]
 }

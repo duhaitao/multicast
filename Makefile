@@ -5,3 +5,6 @@ all: 01 02
 
 02: 02.go
 	go build 02.go
+
+clean:
+	rm -f 01 02
