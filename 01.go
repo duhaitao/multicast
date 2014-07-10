@@ -28,8 +28,9 @@ func main() {
 		pkglist.PushBack (newpkg)
 	}
 
-	// receiver use lost_pkg_list to hold the unordered pkg
-	lost_pkg_list := list.New ()
+	// receiver use rqueue to hold the unordered pkg
+	/// lost_pkg_list := list.New ()
+	rqueue := rmcast.NewRqueue ()
 
 	multicastip := net.ParseIP("230.1.1.1")
 	pUDPAddr := &net.UDPAddr{IP: multicastip, Port: 12345}
@@ -200,6 +201,8 @@ func main() {
 							lost_seq_array = append (lost_seq_array, unordered_pkg.GetSeq () + 1)
 							lost_seq_array = append (lost_seq_array,
 								next_unordered_pkg.GetSeq () - 1 - unordered_pkg.GetSeq ())
+
+							fmt.Println (unordered_pkg.GetSeq () + 1, next_unordered_pkg.GetSeq () - 1, lost_seq_count)
 							lost_seq_count++
 							if lost_seq_count == 255 {
 								break
@@ -221,11 +224,11 @@ func main() {
 
 					copy (val_buf[10 + 4 * i:10 + 4 * (i + 1)], tmp[:])
 
-					fmt.Println ("lost seq, len", lost_seq, lost_len)
+					/// fmt.Println ("lost seq, len lost_seq_count", lost_seq, lost_len, lost_seq_count)
 					/// binary.BigEndian.PutUint32 (val_buf[4 * i:4 * (i + 1)], lost_seq_array[i])
 				}
 
-				binary.BigEndian.PutUint32 (val_buf[4:8], lost_seq_count)
+				binary.BigEndian.PutUint32 (val_buf[4:8], lost_seq_count * 8)
 
 				fmt.Println ("send nak pkg: ", last_seq)
 				wchan<- nak_pkg
