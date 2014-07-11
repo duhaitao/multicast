@@ -13,11 +13,15 @@ func NewRqueue () *Rqueue {
 	return &Rqueue {list.New ()}
 }
 
+/*
+ * return a list, which contains all the pkg in sequence
+ * they should be dispose by upper application.
+ */
 func (pqueue *Rqueue) Enque (pkg *PKG) {
 	insert_seq := pkg.GetSeq ()
 	var seq uint32
 	// find the proper place to enque it
-	for e := lst.Front (); e != nil; e = e.Next () {
+	for e := pqueue.lst.Front (); e != nil; e = e.Next () {
 		seq = e.Value.(*PKG).GetSeq ()
 		if seq == insert_seq { // duplicate 
 			return
@@ -28,14 +32,21 @@ func (pqueue *Rqueue) Enque (pkg *PKG) {
 			return
 		}
 	}
+	// new pkg, append it
 	pqueue.lst.PushBack (pkg)
+	return
 }
 
 // deque the last item
 func (pqueue *Rqueue) Deque () *PKG {
-	last := pqueue.lst.Back ()
-	return pqueue.lst.Remove (last).(*PKG)
+	first := pqueue.lst.Front ()
+	return pqueue.lst.Remove (first).(*PKG)
 }
 
-func (pqueue *RQueue) Walk (action func ()) {
+func (pqueue *Rqueue) First () *PKG {
+	if pqueue.lst.Len () == 0 {
+		return nil
+	}
+
+	return pqueue.lst.Front ().Value.(*PKG)
 }

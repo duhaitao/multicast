@@ -14,6 +14,31 @@ func HandlePackage (npkg *rmcast.PKG) {
 	fmt.Println ("rcv seq: ", npkg.GetSeq ())
 }
 
+// input go routine, which just read data from socket
+// and copy to pkg, then send pkg to rchan
+func(conn *UDPConn, pkgcache *PkgCache, rchan chan *rmcast.PKG) {
+	for {
+		nread, peer_addr, err = conn.ReadFromUDP(buf)
+		if err != nil {
+			log.Fatal("ReadFromUDP err")
+		}
+
+		var rcv_pkg *rmcast.PKG
+		if pkglist.Len () > 0 {
+			elem := pkglist.Front ()
+			rcv_pkg = elem.Value.(*rmcast.PKG)
+			pkglist.Remove (elem)
+			// fmt.Println ("after pop pkglist len: ", pkglist.Len ())
+		} else {
+			/// rcv_pkg = new (rmcast.PKG)
+			rcv_pkg = rmcast.NewPKG ()
+		}
+		rcv_pkg := pkgcache.Get ()
+		rcv_pkg.SetBuf (buf[:nread])
+		rchan<- rcv_pkg
+	}
+}
+
 func main() {
 	ifi, err := net.InterfaceByName("eth0")
 	if err != nil {
@@ -46,27 +71,6 @@ func main() {
 	wchan := make (chan *rmcast.PKG, 4096)
 	var peer_addr *net.UDPAddr
 	var nread int
-	go func() {
-		for {
-			nread, peer_addr, err = conn.ReadFromUDP(buf)
-			if err != nil {
-				log.Fatal("ReadFromUDP err")
-			}
-
-			var rcv_pkg *rmcast.PKG
-			if pkglist.Len () > 0 {
-				elem := pkglist.Front ()
-				rcv_pkg = elem.Value.(*rmcast.PKG)
-				pkglist.Remove (elem)
-				// fmt.Println ("after pop pkglist len: ", pkglist.Len ())
-			} else {
-				/// rcv_pkg = new (rmcast.PKG)
-				rcv_pkg = rmcast.NewPKG ()
-			}
-			rcv_pkg.SetBuf (buf[:nread])
-			rchan<- rcv_pkg
-		}
-	} ()
 
 	// write to peer, ack and nak
 	go func () {
