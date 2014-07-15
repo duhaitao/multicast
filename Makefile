@@ -1,6 +1,6 @@
-all: 01 02
+all: 01 02 
 
-01: 01.go
+01: 01.go rmcast/*.go
 	go build 01.go
 
 02: 02.go

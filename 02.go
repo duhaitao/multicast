@@ -1,17 +1,18 @@
 package main
 
 import (
-	"encoding/binary"
-	// "fmt"
+	// "encoding/binary"
+	"fmt"
 	"log"
 	"net"
 	"time"
-	// "github.com/duhaitao/multicast/rmcast"
+	"github.com/duhaitao/multicast/rmcast"
 )
 
 func main() {
 	/// conn, err := net.Dial ("udp", "224.0.0.1:12345")
 	/// conn, err := net.Dial("udp", "230.1.1.1:12345")
+	fmt.Println ("dial to 127.0.0.1:12345")
 	UdpAddr, err := net.ResolveUDPAddr ("udp", "127.0.0.1:12345")
 	if err != nil {
 		log.Fatal ("ResolveUDPAddr err: ", err)
@@ -37,7 +38,6 @@ func main() {
 		}
 	} ()
 */
-	buf := make([]byte, 1024)
 	/*   +------------------------+
 	 *   | type | len | seq | val |
 	 *   +------------------------+
@@ -72,26 +72,21 @@ func main() {
 	// cwin_siz := 1 // init congestion windown is 1, like tcp
 	// swin_siz := 10 // init slide window size 
 	var seq uint32
-	tbegin := time.Now ()
+	snd_pkg := rmcast.NewPKG ()
 	for {
-		var pkttype uint16 = 1
-		binary.BigEndian.PutUint16(buf[:2], pkttype)
-		var length uint32 = 10
-		binary.BigEndian.PutUint32(buf[2:6], length)
-
 		seq++
 
-		binary.BigEndian.PutUint32(buf[6:10], seq)
-		copy(buf[10:], []byte("0123456789"))
+		snd_pkg.SetType (rmcast.TYPE_DATA)
+		snd_pkg.SetLen (10)
+		snd_pkg.SetSeq (seq)
+		snd_pkg.SetVal ([]byte("0123456789"))
 
 		//fmt.Println(string(buf))
-		_, err = conn.Write(buf[:20])
+		_, err = conn.Write(snd_pkg.GetBuf ())
+		fmt.Println ("seq: ", snd_pkg.GetSeq (), "type: ", snd_pkg.GetType (),
+			"val: ", string (snd_pkg.GetVal ()))
 
-		if time.Since (tbegin) > 1000000 { // great 1ms
-			tbegin = time.Now ()
-			// overtime, send ack
-
-		}
+		time.Sleep (time.Second)
 	}
 	conn.Close()
 }

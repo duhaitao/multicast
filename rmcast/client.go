@@ -1,7 +1,7 @@
 package rmcast
 
 import (
-	// "fmt"
+	"fmt"
 	"log"
 	"net"
 	// "container/list"
@@ -11,7 +11,7 @@ import (
 )
 
 type Client struct {
-	rqueue Rqueue
+	rqueue *Rqueue
 	last_seq uint32
 	conn *net.UDPConn
 	pkgcache *PkgCache
@@ -21,10 +21,10 @@ type Client struct {
 	// flag, to inform main routine to handle Squeue
 	handleSqueue bool
 	// call back for upper application
-	HandlePackage *func (pkg *PKG)
+	HandlePackage func (pkg *PKG)
 }
 
-func (client *Client) RegisterHandlePackage (fn *func (pkg *PKG)) {
+func (client *Client) RegisterHandlePackage (fn func (pkg *PKG)) {
 	client.HandlePackage = fn
 }
 
@@ -39,7 +39,7 @@ func (client *Client) BindMAddr (maddr *MAddr) (*net.UDPConn, error) {
 
 // input go routine, which just read data from socket
 // and copy to pkg, then send pkg to rchan
-func (client *Client)rcv_routine () {
+func (client *Client) rcv_routine () {
 	buf := make([]byte, 8192)
 	for {
 		nread, peer_addr, err := client.conn.ReadFromUDP (buf)
@@ -73,10 +73,14 @@ func (client *Client) send_nack (pkg *PKG) {
 
 func (client *Client) rcv_data_pkg (pkg *PKG) {
 	// insert to proper place of qeue by seq
+	log.Println ("rcv_data_pkg")
 	client.rqueue.Enque (pkg)
 
 	for {
 		first_pkg := client.rqueue.First ()
+		if first_pkg == nil {
+			break
+		}
 		first_pkg_seq := first_pkg.GetSeq ()
 		if client.last_seq == 0 {
 			if first_pkg_seq == 1 {
@@ -94,7 +98,7 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 				break
 			}
 		} else {
-			if client.last_seq + 1 = first_pkg_seq {
+			if client.last_seq + 1 == first_pkg_seq {
 				// rcv ordered seq
 				client.HandlePackage (first_pkg)
 				first_pkg = client.rqueue.Deque ()
@@ -108,11 +112,12 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 }
 
 func (client *Client) rcv_nak_pkg (pkg *PKG) {
+	log.Println ("rcv_nak_pkg")
 }
 
 func (client *Client) Run () {
-	rchan := make (chan *PKG, 4096)
-	wchan := make (chan *PKG, 4096)
+	client.rchan = make (chan *PKG, 4096)
+	client.wchan = make (chan *PKG, 4096)
 
 	// rcv routine just read data from socket, 
 	// and make pkg then send to rchan channel.
@@ -121,9 +126,10 @@ func (client *Client) Run () {
 
 	/// now := time.Now ()
 	for {
-		for rcv_pkg := range rchan {
+		for rcv_pkg := range client.rchan {
 			// enque, and then iterate the rqueue
 			pkg_type := rcv_pkg.GetType ()
+			fmt.Println ("rcvpkg.pkg_type: ", pkg_type, "seq: ", rcv_pkg.GetSeq ())
 			switch pkg_type {
 				case TYPE_DATA:
 					client.rcv_data_pkg (rcv_pkg)
@@ -140,4 +146,17 @@ func (client *Client) Run () {
 
 		}
 	}
+}
+
+func NewClient (maddr *MAddr) *Client {
+	var client = new (Client)
+	conn, err := client.BindMAddr (maddr)
+	if err != nil {
+		log.Fatal ("BindMaddr err: ", err)
+	}
+	client.conn = conn
+	client.pkgcache = NewPkgCache (1024)
+	rqueue := NewRqueue ()
+	client.rqueue = rqueue
+	return client
 }

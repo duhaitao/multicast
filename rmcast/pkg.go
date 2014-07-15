@@ -97,3 +97,11 @@ func (pkg *PKG) GetBuf () []byte {
 	/// return pkg.buf[:10 + binary.BigEndian.Uint32 (pkg.buf[2:6])]
 	return pkg.buf[:]
 }
+
+/*
+func (pkg *PKG) String () string {
+	buf := make ([]byte, 1024)
+	
+	return string (buf)
+}
+*/

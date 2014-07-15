@@ -3,6 +3,7 @@ package rmcast
 // queue is FIFO data struct and sorted by seq
 import (
 	"container/list"
+	"log"
 )
 
 type Rqueue struct {
@@ -10,7 +11,13 @@ type Rqueue struct {
 }
 
 func NewRqueue () *Rqueue {
-	return &Rqueue {list.New ()}
+/*
+	rqueue := new (Rqueue)
+	lst := list.New ()
+	rqueue.lst = lst
+	return rqueue
+*/
+	return &Rqueue {lst: list.New ()}
 }
 
 /*
@@ -19,6 +26,7 @@ func NewRqueue () *Rqueue {
  */
 func (pqueue *Rqueue) Enque (pkg *PKG) {
 	insert_seq := pkg.GetSeq ()
+	log.Println ("insert seq: ", insert_seq)
 	var seq uint32
 	// find the proper place to enque it
 	for e := pqueue.lst.Front (); e != nil; e = e.Next () {
