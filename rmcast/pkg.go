@@ -37,6 +37,7 @@ import (
  */
 import (
 	"encoding/binary"
+	"net"
 )
 
 const (
@@ -47,10 +48,11 @@ const (
 
 type PKG struct {
 	buf []byte
+	Addr net.UDPAddr
 }
 
 func NewPKG () *PKG {
-	return &PKG{make ([]byte, 10, 4096)}
+	return &PKG{make ([]byte, 10, 4096), net.UDPAddr{}}
 }
 
 func (pkg *PKG) GetType () uint16 {

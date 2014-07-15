@@ -1,6 +1,6 @@
 package rmcast
 // rqueue, receiver queue which queue unordered pkg
-// queue is FIFO data struct
+// queue is FIFO data struct and sorted by seq
 import (
 	"container/list"
 )
@@ -37,7 +37,7 @@ func (pqueue *Rqueue) Enque (pkg *PKG) {
 	return
 }
 
-// deque the last item
+// deque the first item
 func (pqueue *Rqueue) Deque () *PKG {
 	first := pqueue.lst.Front ()
 	return pqueue.lst.Remove (first).(*PKG)
