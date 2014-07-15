@@ -59,6 +59,8 @@ func (client *Client) rcv_routine () {
 // write to peer, ack and nak
 func (client *Client ) snd_routine () {
 	for rcv_pkg := range client.wchan {
+		fmt.Println ("len: ", rcv_pkg.GetLen (),
+			", buflen: ", len (rcv_pkg.GetBuf ()))
 		client.conn.WriteToUDP (rcv_pkg.GetBuf (), &rcv_pkg.Addr)
 		client.pkgcache.Put (rcv_pkg)
 	}
@@ -132,10 +134,10 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 				}
 
 				if nak_pkg.GetLen () == 0 {
-					/// log.Fatal ("must hole in rqueue, but we cann't found it")
-					fmt.Println ("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+					log.Fatal ("must hole in rqueue, but we cann't found it")
 				}
 
+				nak_pkg.Addr = pkg.Addr
 				client.wchan <- nak_pkg
 				break
 			}

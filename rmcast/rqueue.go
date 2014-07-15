@@ -62,7 +62,7 @@ func (pqueue *Rqueue) GetLostSeqInfo (last_rcv_seq uint32) []LostSeqInfo {
 	var i int
 	var total_lost_count uint32
 	begin_seq := last_rcv_seq + 1
-	fmt.Println ("=================================")
+	// fmt.Println ("=================================")
 	for e := pqueue.lst.Front (); e != nil; e = e.Next () {
 		seq := e.Value.(*PKG).GetSeq ()
 
