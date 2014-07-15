@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"time"
+	//"time"
 	"github.com/duhaitao/multicast/rmcast"
 )
 
@@ -86,7 +86,7 @@ func main() {
 		fmt.Println ("seq: ", snd_pkg.GetSeq (), "type: ", snd_pkg.GetType (),
 			"val: ", string (snd_pkg.GetVal ()))
 
-		time.Sleep (time.Second)
+	//	time.Sleep (time.Second)
 	}
 	conn.Close()
 }

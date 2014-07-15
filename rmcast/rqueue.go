@@ -4,6 +4,7 @@ package rmcast
 import (
 	"container/list"
 	"log"
+	"fmt"
 )
 
 type LostSeqInfo struct {
@@ -59,28 +60,63 @@ func (pqueue *Rqueue) First () *PKG {
 
 func (pqueue *Rqueue) GetLostSeqInfo (last_rcv_seq uint32) []LostSeqInfo {
 	var i int
-	begin_seq := last_rcv_seq
-
+	var total_lost_count uint32
+	begin_seq := last_rcv_seq + 1
+	fmt.Println ("=================================")
 	for e := pqueue.lst.Front (); e != nil; e = e.Next () {
 		seq := e.Value.(*PKG).GetSeq ()
 
+		//fmt.Println ("queue seq: ", seq, ", begin_seq: ", begin_seq)
+
 		if seq <= last_rcv_seq {
-			log.Fatal ("unorder seq: ", seq, "last_rcv_seq: ", last_rcv_seq)
+			log.Fatal ("unorder seq: ", seq, ", last_rcv_seq: ", last_rcv_seq)
 		}
 
 		if seq == last_rcv_seq + 1 {
-			log.Fatal ("unorder seq: ", seq, "last_rcv_seq: ", last_rcv_seq)
+			log.Fatal ("unorder seq: ", seq, ", last_rcv_seq: ", last_rcv_seq)
+		}
+
+		if begin_seq == seq {
+			begin_seq++
+			continue
 		}
 
 		if i == 0 {
 			pqueue.lostSeq[i].Begin = last_rcv_seq + 1
 			pqueue.lostSeq[i].Count = seq - last_rcv_seq - 1
 		} else {
-			pqueue.lostSeq[i].Begin = pqueue.lostSeq[i - 1].Begin + pqueue.lostSeq[i - 1].Count + 1 + 1
-			pqueue.lostSeq[i].Count = seq - pqueue.lostSeq[i - 1].Begin - 1
+			pqueue.lostSeq[i].Begin = begin_seq
+			pqueue.lostSeq[i].Count = seq - begin_seq - 1
 		}
+
+		total_lost_count += pqueue.lostSeq[i].Count
+		fmt.Println ("begin: ", begin_seq, ", count: ", seq - begin_seq - 1)
+		begin_seq = seq + 1
 		i++
+		if i > 160 {
+			break
+		}
+
+		if total_lost_count > 1000 {
+			break
+		}
 	}
 
-	return pqueue.lostSeq[:i - 1]
+	return pqueue.lostSeq[:i]
+}
+
+// test use 
+func (pqueue *Rqueue) SeqInQueue (query_seq uint32) bool {
+	for e := pqueue.lst.Front (); e != nil; e = e.Next () {
+		seq := e.Value.(*PKG).GetSeq ()
+		if query_seq > seq {
+			return false
+		}
+
+		if query_seq == seq {
+			return true
+		}
+	}
+
+	return false
 }

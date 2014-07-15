@@ -7,12 +7,12 @@ import (
 	// "container/list"
 	// "time"
 	// "github.com/duhaitao/multicast/rmcast"
-	// "encoding/binary"
+	"encoding/binary"
 )
 
 type Client struct {
 	rqueue *Rqueue
-	last_seq uint32
+	last_rcv_seq uint32
 	conn *net.UDPConn
 	pkgcache *PkgCache
 	rchan chan *PKG
@@ -81,12 +81,12 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 			break
 		}
 		first_pkg_seq := first_pkg.GetSeq ()
-		if client.last_seq == 0 {
+		if client.last_rcv_seq == 0 {
 			if first_pkg_seq == 1 {
 				client.HandlePackage (first_pkg)
 				first_pkg = client.rqueue.Deque ()
 				client.pkgcache.Put (first_pkg)
-				client.last_seq = first_pkg_seq
+				client.last_rcv_seq = first_pkg_seq
 
 				// first rcv seq, send ack immediately
 				client.send_ack (first_pkg)
@@ -97,14 +97,46 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 				break
 			}
 		} else {
-			if client.last_seq + 1 == first_pkg_seq {
+			if client.last_rcv_seq + 1 == first_pkg_seq {
 				// rcv ordered seq
 				client.HandlePackage (first_pkg)
 				first_pkg = client.rqueue.Deque ()
 				client.pkgcache.Put (first_pkg)
-				client.last_seq = first_pkg_seq
+				client.last_rcv_seq = first_pkg_seq
 			} else {
 				// collect lost seq info
+				lost_seq_info := client.rqueue.GetLostSeqInfo (client.last_rcv_seq)
+
+				// var lost LostSeqInfo
+				nak_pkg := client.pkgcache.Get ()
+				var count uint32
+				for idx, lost := range lost_seq_info {
+					nak_pkg.SetType (TYPE_NAK)
+					nak_pkg.SetSeq (0)  // only DATA has seq
+					count++
+					nak_pkg.SetLen (count)
+
+					//fmt.Println ("Begin: ", lost.Begin, ", Count: ", lost.Count)
+					snd_buf := nak_pkg.GetVal ()
+					binary.BigEndian.PutUint32 (snd_buf[idx * 4:(idx + 1) * 4], lost.Begin)
+					binary.BigEndian.PutUint32 (snd_buf[(idx + 1) * 4:(idx + 2) * 4], lost.Count)
+/* test
+					fmt.Println ("Begin: ", lost.Begin, "Count: ", lost.Count)
+					var i uint32
+					for i = 0; i < lost.Count; i++ {
+						if client.rqueue.SeqInQueue (lost.Begin + i) {
+							log.Fatal (lost.Begin + i, " is in rcv queue")
+						}
+					}
+*/
+				}
+
+				if nak_pkg.GetLen () == 0 {
+					/// log.Fatal ("must hole in rqueue, but we cann't found it")
+					fmt.Println ("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+				}
+
+				client.wchan <- nak_pkg
 				break
 			}
 		}
