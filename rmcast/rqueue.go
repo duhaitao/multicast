@@ -17,6 +17,7 @@ func NewRqueue () *Rqueue {
 	rqueue.lst = lst
 	return rqueue
 */
+	log.Println ("NewRqueue")
 	return &Rqueue {lst: list.New ()}
 }
 
@@ -26,7 +27,7 @@ func NewRqueue () *Rqueue {
  */
 func (pqueue *Rqueue) Enque (pkg *PKG) {
 	insert_seq := pkg.GetSeq ()
-	log.Println ("insert seq: ", insert_seq)
+	/// log.Println ("insert seq: ", insert_seq)
 	var seq uint32
 	// find the proper place to enque it
 	for e := pqueue.lst.Front (); e != nil; e = e.Next () {

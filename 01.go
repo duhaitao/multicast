@@ -8,7 +8,7 @@ import (
 )
 
 func HandlePackage (npkg *rmcast.PKG) {
-	fmt.Println ("rcv seq: ", npkg.GetSeq ())
+	fmt.Println ("HandlePackage rcv seq: ", npkg.GetSeq ())
 }
 
 func main() {

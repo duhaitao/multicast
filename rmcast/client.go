@@ -29,6 +29,7 @@ func (client *Client) RegisterHandlePackage (fn func (pkg *PKG)) {
 }
 
 func (client *Client) BindMAddr (maddr *MAddr) (*net.UDPConn, error) {
+	fmt.Println ("BindMAddr")
 	conn, err := net.ListenMulticastUDP ("udp4", maddr.Iface, maddr.Addr)
 	if err != nil {
 		log.Fatal("net.ListenMulticastUDP err")
@@ -64,7 +65,6 @@ func (client *Client ) snd_routine () {
 }
 
 func (client *Client) send_ack (pkg *PKG) {
-
 }
 
 func (client *Client) send_nack (pkg *PKG) {
@@ -73,7 +73,6 @@ func (client *Client) send_nack (pkg *PKG) {
 
 func (client *Client) rcv_data_pkg (pkg *PKG) {
 	// insert to proper place of qeue by seq
-	log.Println ("rcv_data_pkg")
 	client.rqueue.Enque (pkg)
 
 	for {
@@ -105,6 +104,7 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 				client.pkgcache.Put (first_pkg)
 				client.last_seq = first_pkg_seq
 			} else {
+				// collect lost seq info
 				break
 			}
 		}
@@ -129,7 +129,7 @@ func (client *Client) Run () {
 		for rcv_pkg := range client.rchan {
 			// enque, and then iterate the rqueue
 			pkg_type := rcv_pkg.GetType ()
-			fmt.Println ("rcvpkg.pkg_type: ", pkg_type, "seq: ", rcv_pkg.GetSeq ())
+			// fmt.Println ("rcvpkg.pkg_type: ", pkg_type, "seq: ", rcv_pkg.GetSeq ())
 			switch pkg_type {
 				case TYPE_DATA:
 					client.rcv_data_pkg (rcv_pkg)
