@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 	// "container/list"
-	// "time"
+	"time"
 	// "github.com/duhaitao/multicast/rmcast"
 	"encoding/binary"
 )
@@ -18,6 +18,11 @@ type Client struct {
 	rchan chan *PKG
 	wchan chan *PKG
 
+	// large quntity nak with same lost info, will incur server 
+	// to send same data many times, so I will control nak sending
+	// speed from source
+	nak_snd_time time.Time
+	ack_snd_time time.Time
 	// flag, to inform main routine to handle Squeue
 	handleSqueue bool
 	// call back for upper application
@@ -62,12 +67,29 @@ func (client *Client ) snd_routine () {
 	for rcv_pkg := range client.wchan {
 		fmt.Println ("len: ", rcv_pkg.GetLen (),
 			", buflen: ", len (rcv_pkg.GetBuf ()))
+
 		client.conn.WriteToUDP (rcv_pkg.GetBuf (), &rcv_pkg.Addr)
+
+		rcv_pkg_type := rcv_pkg.GetType ()
+		switch rcv_pkg_type {
+			case TYPE_NAK:
+				client.nak_snd_time = time.Now ()
+			case TYPE_ACK:
+				client.ack_snd_time = time.Now ()
+		}
 		client.pkgcache.Put (rcv_pkg)
 	}
 }
 
-func (client *Client) send_ack (pkg *PKG) {
+func (client *Client) send_ack (raddr *net.UDPAddr) {
+	ack_pkg := client.pkgcache.Get ()
+	ack_pkg.Reset ()
+
+	ack_pkg.SetType (TYPE_ACK)
+	ack_pkg.SetSeq (client.last_rcv_seq)  // only DATA has seq
+
+	ack_pkg.Addr = *raddr
+	client.wchan <- ack_pkg
 }
 
 func (client *Client) send_nack (lostinfo []LostSeqInfo, raddr *net.UDPAddr) {
@@ -110,6 +132,7 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 	// insert to proper place of qeue by seq
 	client.rqueue.Enque (pkg)
 
+	var ordered_count int
 	for {
 		first_pkg := client.rqueue.First ()
 		if first_pkg == nil {
@@ -119,12 +142,13 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 		if client.last_rcv_seq == 0 {
 			if first_pkg_seq == 1 {
 				client.HandlePackage (first_pkg)
+				ordered_count++
 				first_pkg = client.rqueue.Deque ()
 				client.pkgcache.Put (first_pkg)
 				client.last_rcv_seq = first_pkg_seq
 
 				// first rcv seq, send ack immediately
-				client.send_ack (first_pkg)
+				client.send_ack (&pkg.Addr)
 				continue
 			} else {
 				// recv unordered pkg, send nack immediately
@@ -136,18 +160,31 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 			}
 		} else {
 			if client.last_rcv_seq + 1 == first_pkg_seq {
+				ordered_count++
+				// every 100 send a ack, server use ack to discard old pkg
+				if ordered_count > 100 {
+					client.send_ack (&pkg.Addr)
+					ordered_count = 0
+				}
 				// rcv ordered seq
 				client.HandlePackage (first_pkg)
 				first_pkg = client.rqueue.Deque ()
 				client.pkgcache.Put (first_pkg)
 				client.last_rcv_seq = first_pkg_seq
 			} else {
-				// collect lost seq info
-				lost_seq_info := client.rqueue.GetLostSeqInfo (client.last_rcv_seq)
-				client.send_nack (lost_seq_info, &pkg.Addr)
+				// nak limit
+				if time.Since (client.nak_snd_time) > time.Microsecond * 200 {
+					// collect lost seq info
+					lost_seq_info := client.rqueue.GetLostSeqInfo (client.last_rcv_seq)
+					client.send_nack (lost_seq_info, &pkg.Addr)
+				}
 				break
 			}
 		}
+	}
+
+	if time.Since (client.ack_snd_time) > time.Millisecond {
+		client.send_ack (&pkg.Addr)
 	}
 }
 
