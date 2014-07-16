@@ -38,6 +38,7 @@ import (
 import (
 	"encoding/binary"
 	"net"
+	"log"
 )
 
 const (
@@ -46,21 +47,26 @@ const (
 	TYPE_NAK
 )
 
+const (
+	PKG_HEADER_LEN = 10
+)
+
 type PKG struct {
 	buf []byte
+	buflen int
 	Addr net.UDPAddr
 }
 
 func NewPKG () *PKG {
-	return &PKG{make ([]byte, 10, 4096), net.UDPAddr{}}
+	return &PKG{make ([]byte, 4096), PKG_HEADER_LEN, net.UDPAddr{}}
 }
 
 func (pkg *PKG) GetType () uint16 {
-	return binary.BigEndian.Uint16 (pkg.buf[:4])
+	return binary.BigEndian.Uint16 (pkg.buf[:2])
 }
 
 func (pkg *PKG) SetType (t uint16) {
-	binary.BigEndian.PutUint16 (pkg.buf[:4], t)
+	binary.BigEndian.PutUint16 (pkg.buf[:2], t)
 }
 
 func (pkg *PKG) GetSeq () uint32 {
@@ -75,8 +81,13 @@ func (pkg *PKG) GetLen () uint32 {
 	return binary.BigEndian.Uint32 (pkg.buf[2:6])
 }
 
-func (pkg *PKG) SetLen (l uint32) {
-	binary.BigEndian.PutUint32 (pkg.buf[2:6], l)
+func (pkg *PKG) SetLen (l int) {
+	binary.BigEndian.PutUint32 (pkg.buf[2:6], uint32 (l))
+}
+
+func (pkg *PKG) SetBufLen (l int) {
+	pkg.buflen = l
+	pkg.buf = pkg.buf[:pkg.buflen]
 }
 
 func (pkg *PKG) GetVal () []byte {
@@ -85,11 +96,21 @@ func (pkg *PKG) GetVal () []byte {
 
 func (pkg *PKG) SetVal (val []byte) {
 	copy (pkg.buf[10:], val)
+	pkg.buflen += len (val)
+	if pkg.buflen >= 4096 {
+		log.Fatal ("SetVal pkg.buf overflow")
+	}
+	pkg.buf = pkg.buf[:pkg.buflen]
 }
 
 // overwrite all buf
 func (pkg *PKG) SetBuf (val []byte) {
 	copy (pkg.buf[:], val)
+	pkg.buflen = len (val)
+	if pkg.buflen >= 4096 {
+		log.Fatal ("SetBuf pkg.buf overflow")
+	}
+	pkg.buf = pkg.buf[:pkg.buflen]
 }
 
 func (pkg *PKG) GetBuf () []byte {
@@ -98,6 +119,14 @@ func (pkg *PKG) GetBuf () []byte {
 	return pkg.buf[:]
 }
 
+func (pkg *PKG) GetBufLen () int {
+	return pkg.buflen
+}
+
+func (pkg *PKG) Reset () {
+	pkg.buf = pkg.buf[0:10]
+	pkg.buflen = 10
+}
 /*
 func (pkg *PKG) String () string {
 	buf := make ([]byte, 1024)

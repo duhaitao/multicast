@@ -86,6 +86,7 @@ func main() {
 		fmt.Println ("seq: ", snd_pkg.GetSeq (), "type: ", snd_pkg.GetType (),
 			"val: ", string (snd_pkg.GetVal ()))
 
+		snd_pkg.Reset ()
 	//	time.Sleep (time.Second)
 	}
 	conn.Close()

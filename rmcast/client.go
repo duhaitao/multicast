@@ -50,6 +50,7 @@ func (client *Client) rcv_routine () {
 
 		var rcv_pkg *PKG
 		rcv_pkg = client.pkgcache.Get ()
+		rcv_pkg.Reset ()
 		rcv_pkg.SetBuf (buf[:nread])
 		rcv_pkg.Addr = *peer_addr
 		client.rchan<- rcv_pkg
@@ -69,8 +70,40 @@ func (client *Client ) snd_routine () {
 func (client *Client) send_ack (pkg *PKG) {
 }
 
-func (client *Client) send_nack (pkg *PKG) {
+func (client *Client) send_nack (lostinfo []LostSeqInfo, raddr *net.UDPAddr) {
+	// var lost LostSeqInfo
+	nak_pkg := client.pkgcache.Get ()
+	nak_pkg.Reset ()
+	snd_buf := nak_pkg.GetVal ()
+	var count int
+	for idx, lost := range lostinfo {
+		nak_pkg.SetType (TYPE_NAK)
+		nak_pkg.SetSeq (0)  // only DATA has seq
+		count++
+		nak_pkg.SetLen (count)
 
+		//fmt.Println ("Begin: ", lost.Begin, ", Count: ", lost.Count)
+		binary.BigEndian.PutUint32 (snd_buf[idx * 4:(idx + 1) * 4], lost.Begin)
+		binary.BigEndian.PutUint32 (snd_buf[(idx + 1) * 4:(idx + 2) * 4], lost.Count)
+/* test
+		fmt.Println ("Begin: ", lost.Begin, "Count: ", lost.Count)
+		var i uint32
+		for i = 0; i < lost.Count; i++ {
+			if client.rqueue.SeqInQueue (lost.Begin + i) {
+				log.Fatal (lost.Begin + i, " is in rcv queue")
+			}
+		}
+*/
+	}
+
+	if nak_pkg.GetLen () == 0 {
+		log.Fatal ("must hole in rqueue, but we cann't found it")
+	}
+
+	nak_pkg.SetBufLen (count * 8 + 10)
+
+	nak_pkg.Addr = *raddr
+	client.wchan <- nak_pkg
 }
 
 func (client *Client) rcv_data_pkg (pkg *PKG) {
@@ -95,7 +128,10 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 				continue
 			} else {
 				// recv unordered pkg, send nack immediately
-				client.send_nack (first_pkg)
+				lostinfo := make ([]LostSeqInfo, 1)
+				lostinfo[0].Begin = 1
+				lostinfo[0].Count = first_pkg_seq - 1
+				client.send_nack (lostinfo, &pkg.Addr)
 				break
 			}
 		} else {
@@ -108,37 +144,7 @@ func (client *Client) rcv_data_pkg (pkg *PKG) {
 			} else {
 				// collect lost seq info
 				lost_seq_info := client.rqueue.GetLostSeqInfo (client.last_rcv_seq)
-
-				// var lost LostSeqInfo
-				nak_pkg := client.pkgcache.Get ()
-				var count uint32
-				for idx, lost := range lost_seq_info {
-					nak_pkg.SetType (TYPE_NAK)
-					nak_pkg.SetSeq (0)  // only DATA has seq
-					count++
-					nak_pkg.SetLen (count)
-
-					//fmt.Println ("Begin: ", lost.Begin, ", Count: ", lost.Count)
-					snd_buf := nak_pkg.GetVal ()
-					binary.BigEndian.PutUint32 (snd_buf[idx * 4:(idx + 1) * 4], lost.Begin)
-					binary.BigEndian.PutUint32 (snd_buf[(idx + 1) * 4:(idx + 2) * 4], lost.Count)
-/* test
-					fmt.Println ("Begin: ", lost.Begin, "Count: ", lost.Count)
-					var i uint32
-					for i = 0; i < lost.Count; i++ {
-						if client.rqueue.SeqInQueue (lost.Begin + i) {
-							log.Fatal (lost.Begin + i, " is in rcv queue")
-						}
-					}
-*/
-				}
-
-				if nak_pkg.GetLen () == 0 {
-					log.Fatal ("must hole in rqueue, but we cann't found it")
-				}
-
-				nak_pkg.Addr = pkg.Addr
-				client.wchan <- nak_pkg
+				client.send_nack (lost_seq_info, &pkg.Addr)
 				break
 			}
 		}

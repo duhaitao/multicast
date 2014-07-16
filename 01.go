@@ -12,7 +12,7 @@ func HandlePackage (npkg *rmcast.PKG) {
 }
 
 func main() {
-	maddr, err := rmcast.NewMAddr ("eth1", "230.1.1.1", 12345)
+	maddr, err := rmcast.NewMAddr ("eth0", "230.1.1.1", 12345)
 	if err != nil {
 		log.Fatal("NewMaddr err: ", err)
 	}
