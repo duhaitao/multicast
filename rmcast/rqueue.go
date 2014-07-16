@@ -17,6 +17,7 @@ type Rqueue struct {
 }
 
 func NewRqueue () *Rqueue {
+	fmt.Println ("create Rqueue")
 	return &Rqueue {lst: list.New (), lostSeq: make([]LostSeqInfo, 160)}
 }
 
@@ -90,7 +91,7 @@ func (pqueue *Rqueue) GetLostSeqInfo (last_rcv_seq uint32) []LostSeqInfo {
 		}
 
 		total_lost_count += pqueue.lostSeq[i].Count
-		fmt.Println ("begin: ", begin_seq, ", count: ", seq - begin_seq - 1)
+		/// fmt.Println ("begin: ", begin_seq, ", count: ", seq - begin_seq - 1)
 		begin_seq = seq + 1
 		i++
 		if i > 160 {

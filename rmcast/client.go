@@ -65,8 +65,8 @@ func (client *Client) rcv_routine () {
 // write to peer, ack and nak
 func (client *Client ) snd_routine () {
 	for rcv_pkg := range client.wchan {
-		fmt.Println ("len: ", rcv_pkg.GetLen (),
-			", buflen: ", len (rcv_pkg.GetBuf ()))
+		/// fmt.Println ("len: ", rcv_pkg.GetLen (),
+		///	", buflen: ", len (rcv_pkg.GetBuf ()))
 
 		client.conn.WriteToUDP (rcv_pkg.GetBuf (), &rcv_pkg.Addr)
 
