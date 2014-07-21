@@ -4,15 +4,19 @@ import (
 	//"fmt"
 )
 
-/*   +------------------------+
- *   | type | len | seq | val |
- *   +------------------------+
- *     2B     4B    4B
+/*   +------------------------------+
+ *   | type | id  | len | seq | val |
+ *   +------------------------------+
+ *     2B     4B    4B    4B 
  *
  *   type:
  *     1 -- data pkg
  *     2 -- ack
  *     3 -- nak
+ *     4 -- protocl control 
+ *
+ *	 id:
+ *    every login user will allocate a id, then communication with this id
  *
  *   len:
  *     val len
@@ -34,6 +38,18 @@ import (
  *     seq: 
  * 		first seq of lost range, len is length of range. every receiver hole occupy a
  *      <seq, len> pair
+ *
+ *	 if type == protocl
+ *	  val format:
+ *   +--------------------------------------
+ *   | protocol type |
+ *   +--------------------------------------
+ *         2B
+ *   protocol type:
+ *     1 - login
+ *     2 - logout
+ *     3 - forcelogout
+ *
  */
 import (
 	"encoding/binary"
@@ -42,13 +58,25 @@ import (
 )
 
 const (
-	TYPE_DATA = iota
+	TYPE_DATA = iota + 1
 	TYPE_ACK
 	TYPE_NAK
+	TYPE_PROTOCOL
 )
 
 const (
-	PKG_HEADER_LEN = 10
+	TYPE_PROTO_LOGIN = iota + 1
+	TYPE_PROTO_LOGOUT
+	TYPE_PROTO_FORCELOGOUT
+)
+
+const (
+	PKG_HEADER_LEN = 14
+	TYPE_OFFSET = 0
+	ID_OFFSET = 2
+	LEN_OFFSET = 6
+	SEQ_OFFSET = 10
+	VAL_OFFSET = 14
 )
 
 type PKG struct {
@@ -62,27 +90,31 @@ func NewPKG () *PKG {
 }
 
 func (pkg *PKG) GetType () uint16 {
-	return binary.BigEndian.Uint16 (pkg.buf[:2])
+	return binary.BigEndian.Uint16 (pkg.buf[:ID_OFFSET])
 }
 
 func (pkg *PKG) SetType (t uint16) {
-	binary.BigEndian.PutUint16 (pkg.buf[:2], t)
+	binary.BigEndian.PutUint16 (pkg.buf[:ID_OFFSET], t)
+}
+
+func (pkg *PKG) GetProtoType () uint16 {
+
 }
 
 func (pkg *PKG) GetSeq () uint32 {
-	return binary.BigEndian.Uint32 (pkg.buf[6:10])
+	return binary.BigEndian.Uint32 (pkg.buf[SEQ_OFFSET:VAL_OFFSET])
 }
 
 func (pkg *PKG) SetSeq (seq uint32) {
-	binary.BigEndian.PutUint32 (pkg.buf[6:10], seq)
+	binary.BigEndian.PutUint32 (pkg.buf[SEQ_OFFSET:VAL_OFFSET], seq)
 }
 
 func (pkg *PKG) GetLen () uint32 {
-	return binary.BigEndian.Uint32 (pkg.buf[2:6])
+	return binary.BigEndian.Uint32 (pkg.buf[LEN_OFFSET:SEQ_OFFSET])
 }
 
 func (pkg *PKG) SetLen (l int) {
-	binary.BigEndian.PutUint32 (pkg.buf[2:6], uint32 (l))
+	binary.BigEndian.PutUint32 (pkg.buf[LEN_OFFSET:SEQ_OFFSET], uint32 (l))
 }
 
 func (pkg *PKG) SetBufLen (l int) {
@@ -91,11 +123,11 @@ func (pkg *PKG) SetBufLen (l int) {
 }
 
 func (pkg *PKG) GetVal () []byte {
-	return pkg.buf[10:]
+	return pkg.buf[VAL_OFFSET:]
 }
 
 func (pkg *PKG) SetVal (val []byte) {
-	copy (pkg.buf[10:], val)
+	copy (pkg.buf[VAL_OFFSET:], val)
 	pkg.buflen += len (val)
 	if pkg.buflen >= 4096 {
 		log.Fatal ("SetVal pkg.buf overflow")
@@ -114,8 +146,6 @@ func (pkg *PKG) SetBuf (val []byte) {
 }
 
 func (pkg *PKG) GetBuf () []byte {
-	/// fmt.Println ("buf size: ", 10 + binary.BigEndian.Uint32 (pkg.buf[2:6]))
-	/// return pkg.buf[:10 + binary.BigEndian.Uint32 (pkg.buf[2:6])]
 	return pkg.buf[:]
 }
 
@@ -124,8 +154,8 @@ func (pkg *PKG) GetBufLen () int {
 }
 
 func (pkg *PKG) Reset () {
-	pkg.buf = pkg.buf[0:10]
-	pkg.buflen = 10
+	pkg.buf = pkg.buf[0:VAL_OFFSET]
+	pkg.buflen = PKG_HEADER_LEN
 }
 /*
 func (pkg *PKG) String () string {

@@ -203,24 +203,38 @@ func (client *Client) Run () {
 
 	/// now := time.Now ()
 	for {
-		for rcv_pkg := range client.rchan {
-			// enque, and then iterate the rqueue
-			pkg_type := rcv_pkg.GetType ()
-			// fmt.Println ("rcvpkg.pkg_type: ", pkg_type, "seq: ", rcv_pkg.GetSeq ())
-			switch pkg_type {
-				case TYPE_DATA:
-					client.rcv_data_pkg (rcv_pkg)
-				// client receive NAK from other client, to avid to send dup NAK
-				// to server. Normally, one client is selected as client leader,
-				// which will send NAK immediately, others will watch this NAK,
-				// if the NAK contains lost seq of theirs, others will delete NAK
-				// of themselves.
-				case TYPE_NAK:
-					client.rcv_nak_pkg (rcv_pkg)
-				default:
-					log.Fatal ("client just only receieve DATA or NAK pkg")
-			}
-
+		select {
+			case rcv_pkg := <-client.rchan:
+				{
+					// enque, and then iterate the rqueue
+					pkg_type := rcv_pkg.GetType ()
+					// fmt.Println ("rcvpkg.pkg_type: ", pkg_type, "seq: ", rcv_pkg.GetSeq ())
+					switch pkg_type {
+					case TYPE_DATA:
+						client.rcv_data_pkg (rcv_pkg)
+						// client receive NAK from other client, to avid to send dup NAK
+						// to server. Normally, one client is selected as client leader,
+						// which will send NAK immediately, others will watch this NAK,
+						// if the NAK contains lost seq of theirs, others will delete NAK
+						// of themselves.
+					case TYPE_NAK:
+						client.rcv_nak_pkg (rcv_pkg)
+					default:
+						log.Fatal ("client just only receieve DATA or NAK pkg")
+					}
+				}
+/*
+			case <-time.After (time.Microsecond * 200):
+				{
+					// nak pkg may lost, so there must have a timer to trig resending nak
+					if time.Since (client.nak_snd_time) > time.Microsecond * 200 {
+						lost_seq_info := client.rqueue.GetLostSeqInfo (client.last_rcv_seq)
+						if len (lost_seq_info) > 0 {
+							client.send_nack (lost_seq_info, &pkg.Addr)
+						}
+					}
+				}
+*/
 		}
 	}
 }
