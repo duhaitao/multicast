@@ -100,7 +100,7 @@ func (client *Client) send_nack (lostinfo []LostSeqInfo, raddr *net.UDPAddr) {
 	var count int
 	for idx, lost := range lostinfo {
 		nak_pkg.SetType (TYPE_NAK)
-		nak_pkg.SetSeq (0)  // only DATA has seq
+		nak_pkg.SetSeq (client.last_rcv_seq)  // nak carry with last ordered seq, like ack
 		count++
 		nak_pkg.SetLen (count)
 

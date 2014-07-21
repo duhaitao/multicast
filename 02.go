@@ -8,6 +8,7 @@ import (
 	"math"
 	"net"
 	"time"
+	"encoding/binary"
 )
 
 type ReceiverInfo struct {
@@ -49,13 +50,13 @@ func main() {
 		} ()
 	*/
 	var (
-		cwin_size uint32 = 100
+		//cwin_size uint32 = 100
 		//cwin_left uint32 = 1
 		//cwin_right uint32 = 2
 
-		swin_size uint32 = 100 // init slide window size
-		swin_left uint32 = 1
-		//swin_right uint32 = 11
+		cwin_size uint32 = 100 // init slide window size
+		cwin_left uint32 = 1
+		//cwin_right uint32 = 11
 	)
 
 	receiver_id_map := make(map[int]*ReceiverInfo)     // key: id, value: last_ack_seq
@@ -73,16 +74,16 @@ func main() {
 				squeue.Enque(pkg)
 				seq := pkg.GetSeq()
 				// first judge slide window
-				if seq < swin_left {
-					log.Println("swin_left: ", swin_left, "first unack seq: ", seq)
-					// timer move the swin_left, and deque all acked pkg
+				if seq < cwin_left {
+					log.Println("cwin_left: ", cwin_left, "first unack seq: ", seq)
+					// timer move the cwin_left, and deque all acked pkg
 					log.Fatal("impossiable")
 				}
 
-				if seq < swin_left+swin_size {
+				if seq < cwin_left + cwin_size {
 					// in slide window, can be send
 					// further more, check cwin
-					if seq < cwin_size+swin_left {
+					if seq < cwin_size + cwin_left {
 						// seq locate in slide window and congestion window can be sent
 						conn.Write(pkg.GetBuf())
 					}
@@ -90,31 +91,54 @@ func main() {
 			case pkg := <-rchan:
 				pkg_type := pkg.GetType()
 				switch pkg_type {
-				case rmcast.TYPE_PROTOCOL:
-					proto_type := pkg.GetProtoType()
-					switch proto_type {
-					case rmcast.TYPE_PROTO_LOGIN:
+					case rmcast.TYPE_ACK: // receiver will send ack immediately when first rcv data
 						receiver_info := receiver_str_map[pkg.Addr.String()]
 						if receiver_info == nil {
-							/*
-								pReceiverInfo := &ReceiverInfo {
-									last_ack_seq: proto_pkg (pkg).GetLastAck (),
-									id: userid,
-									last_seen: time.Now (),
-									addr: pkg.Addr
-								}
-							*/
-							/// pReceiverInfo := &ReceiverInfo {proto_pkg (pkg).GetLastAck (), userid, time.Now (), pkg.Addr}
-							pReceiverInfo := &ReceiverInfo{pkg.GetLastAck(), userid, time.Now(), pkg.Addr}
+							pReceiverInfo := &ReceiverInfo{pkg.GetSeq (), userid, time.Now(), pkg.Addr}
 							receiver_str_map[pkg.Addr.String()] = pReceiverInfo
 							receiver_id_map[userid] = pReceiverInfo
 							userid++
 						} else {
-							log.Fatal("dup login, ignore it")
+							receiver_info.last_seen = time.Now ()
+							receiver_info.last_ack_seq = pkg.GetSeq ()
+						}
+						cwin_size++
+
+					case rmcast.TYPE_NAK:
+						receiver_info := receiver_str_map[pkg.Addr.String()]
+						if receiver_info == nil {
+							pReceiverInfo := &ReceiverInfo{pkg.GetSeq (), userid, time.Now(), pkg.Addr}
+							receiver_str_map[pkg.Addr.String()] = pReceiverInfo
+							receiver_id_map[userid] = pReceiverInfo
+							userid++
+
+							// it's possible, such as first ack is lost
+							cwin_size /= 2
+							if cwin_size < 100 {
+								cwin_size = 100
+							}
+						} else {
+							receiver_info.last_seen = time.Now ()
+							receiver_info.last_ack_seq = pkg.GetSeq ()
+
+							cwin_size /= 2
+							if cwin_size < 100 {
+								cwin_size = 100
+							}
 						}
 
-					case rmcast.TYPE_PROTO_LOGOUT:
-					}
+						lost_pkg_count := pkg.GetLen ()
+						//lost_slice := []rmcast.LostSeqInfo (pkg.GetVal ())
+						lost_info_buf := pkg.GetVal ()
+						var i uint32
+						var j uint32
+						for i = 0; i < lost_pkg_count; i++ {
+							/// lost_seq := binary.BigEndian.Uint32 (lost_info_buf[i*4:i*4 + 4])
+							lost_seq_count := binary.BigEndian.Uint32 (lost_info_buf[i*4 + 4: i*4 +8])
+
+							for j = 0; j < lost_seq_count; j++ {
+							}
+						}
 				}
 
 			case <-time.After(time.Microsecond * 200):
@@ -140,13 +164,13 @@ func main() {
 					delete(receiver_str_map, str)
 				}
 
-				if min_ack_seq != math.MaxUint32 && min_ack_seq > swin_left {
-					swin_left = min_ack_seq
+				if min_ack_seq != math.MaxUint32 && min_ack_seq > cwin_left {
+					cwin_left = min_ack_seq
 
 					// remove acked pkg
 					for {
 						first_pkg := squeue.First()
-						if first_pkg.GetSeq() >= swin_left {
+						if first_pkg.GetSeq() >= cwin_left {
 							break
 						}
 
@@ -176,8 +200,9 @@ func main() {
 	}()
 
 	var seq uint32
-	snd_pkg := pkgcache.Get()
 	for {
+		snd_pkg := pkgcache.Get()
+		snd_pkg.Reset()
 		seq++
 
 		snd_pkg.SetType(rmcast.TYPE_DATA)
@@ -185,12 +210,13 @@ func main() {
 		snd_pkg.SetSeq(seq)
 		snd_pkg.SetVal([]byte("0123456789"))
 
+		wchan<- snd_pkg
+/*
 		//fmt.Println(string(buf))
 		_, err = conn.Write(snd_pkg.GetBuf())
 		fmt.Println("seq: ", snd_pkg.GetSeq(), "type: ", snd_pkg.GetType(),
 			"val: ", string(snd_pkg.GetVal()))
-
-		snd_pkg.Reset()
+*/
 		//	time.Sleep (time.Second)
 	}
 	conn.Close()
