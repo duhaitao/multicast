@@ -77,6 +77,7 @@ const (
 	LEN_OFFSET = 6
 	SEQ_OFFSET = 10
 	VAL_OFFSET = 14
+	PROTO_VAL_OFFSET = 16
 )
 
 type PKG struct {
@@ -98,7 +99,11 @@ func (pkg *PKG) SetType (t uint16) {
 }
 
 func (pkg *PKG) GetProtoType () uint16 {
+	return binary.BigEndian.Uint16 (pkg.buf[VAL_OFFSET:PROTO_VAL_OFFSET])
+}
 
+func (pkg *PKG) SetProtoType (t uint16) {
+	binary.BigEndian.PutUint16 (pkg.buf[VAL_OFFSET:PROTO_VAL_OFFSET], t)
 }
 
 func (pkg *PKG) GetSeq () uint32 {
@@ -153,9 +158,16 @@ func (pkg *PKG) GetBufLen () int {
 	return pkg.buflen
 }
 
+func (pkg *PKG) GetLastAck () uint32 {
+	return binary.BigEndian.Uint32 (pkg.buf[PROTO_VAL_OFFSET:PROTO_VAL_OFFSET + 4])
+}
+
 func (pkg *PKG) Reset () {
 	pkg.buf = pkg.buf[0:VAL_OFFSET]
 	pkg.buflen = PKG_HEADER_LEN
+}
+
+type ProtoPKG struct {
 }
 /*
 func (pkg *PKG) String () string {
